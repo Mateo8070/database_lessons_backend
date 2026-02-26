@@ -35,4 +35,31 @@ router.post('/login', async (req, res) => {
   res.json({ status: "success", token: token });
 });
 
+// POST /register
+// Public route — anyone can create an account (name, email, password)
+router.post('/register', async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    // 1. Check if email is already taken
+    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ status: "error", message: "Email already in use" });
+    }
+
+    // 2. Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 3. Insert the new user
+    const result = await pool.query(
+      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email",
+      [name, email, hashedPassword]
+    );
+
+    res.status(201).json({ status: "success", user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
 module.exports = router;
